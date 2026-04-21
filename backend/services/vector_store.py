@@ -1,5 +1,5 @@
 import os
-from langchain_community.vectorstores import FAISS
+from langchain_pinecone import PineconeVectorStore
 from services.embeddings import get_embeddings
 from utils.config import settings
 from utils.logger import get_logger
@@ -8,24 +8,30 @@ logger = get_logger(__name__)
 
 def store_chunks(chunks):
     try:
-        logger.info("Storing chunks in FAISS vector store")
+        logger.info(f"Storing chunks in Pinecone index: {settings.PINECONE_INDEX_NAME}")
         embeddings = get_embeddings()
-        vector_store = FAISS.from_documents(chunks, embeddings)
-        vector_store.save_local(settings.FAISS_INDEX_PATH)
-        logger.info("Successfully saved FAISS index locally")
+        PineconeVectorStore.from_documents(
+            chunks,
+            embeddings,
+            index_name=settings.PINECONE_INDEX_NAME
+        )
+        logger.info("Successfully saved chunks to Pinecone")
         return True
     except Exception as e:
-        logger.error(f"Error storing chunks: {str(e)}")
+        logger.error(f"Error storing chunks in Pinecone: {str(e)}")
         raise e
 
 def get_vector_store():
     try:
-        if not os.path.exists(settings.FAISS_INDEX_PATH):
-            logger.warning("FAISS index not found. Please upload a document first.")
+        if not settings.PINECONE_API_KEY:
+            logger.warning("PINECONE_API_KEY not found in environment.")
             return None
-        logger.info("Loading existing FAISS index")
+        logger.info("Connecting to existing Pinecone index")
         embeddings = get_embeddings()
-        return FAISS.load_local(settings.FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+        return PineconeVectorStore(
+            index_name=settings.PINECONE_INDEX_NAME, 
+            embedding=embeddings
+        )
     except Exception as e:
-        logger.error(f"Error loading vector store: {str(e)}")
+        logger.error(f"Error loading Pinecone vector store: {str(e)}")
         return None
